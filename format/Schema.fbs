@@ -310,8 +310,8 @@ struct Buffer {
   /// padded to a minimum size multiple of 8, but the length here is
   /// the Buffer size that the writer intends the reader to
   /// receive. For example, a buffer of size 1 may go on the wire with
-  /// 1 byte plus 7 bytes of padding, though the length here can still
-  /// be 1.
+  /// 1 byte plus 7 bytes of padding, though the length here can
+  /// either be 1 or 8
   length: long;
 }
 
