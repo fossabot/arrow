@@ -18,6 +18,13 @@
 Interprocess messaging / communication (IPC)
 ============================================
 
+This document discusses how Arrow protocol messages defined in
+`format/Message.fbs
+<https://github.com/apache/arrow/blob/master/format/Message.fbs>`_ and
+`format/File.fbs
+<https://github.com/apache/arrow/blob/master/format/Message.fbs>`_ are
+used for interprocess communication.
+
 Encapsulated message format
 ---------------------------
 
@@ -113,12 +120,11 @@ In the file format, there is no requirement that dictionary keys should be
 defined in a ``DictionaryBatch`` before they are used in a ``RecordBatch``, as long
 as the keys are defined somewhere in the file.
 
-RecordBatch body structure
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+RecordBatch messages
+~~~~~~~~~~~~~~~~~~~~
 
-The ``RecordBatch`` metadata contains a depth-first (pre-order) flattened set of
-field metadata and physical memory buffers (some comments from ``Message.fbs``
-have been shortened / removed): ::
+The ``RecordBatch`` metadata contains a depth-first (pre-order)
+flattened set of field metadata and physical memory buffers::
 
     table RecordBatch {
       length: long;
@@ -126,47 +132,25 @@ have been shortened / removed): ::
       buffers: [Buffer];
     }
 
-    struct FieldNode {
-      length: long;
-      null_count: long;
-    }
+* ``RecordBatch``, which contains the flattened ``FieldNode`` and
+  ``Buffer`` structs
+* ``FieldNode``, which contains the length and null count for each
+  field (and their children)
+* ``Buffer`` in , which indicates the position and size of each
+  constituent memory buffer in the message body
 
-    struct Buffer {
-      /// The relative offset into the shared memory page where the bytes for this
-      /// buffer starts
-      offset: long;
+The ``Buffer`` offsets use as a frame of reference the start of the
+message body. So, while in a general IPC setting these offsets may be
+anyplace in one or more shared memory regions, in the file format the
+offsets start from 0.
 
-      /// The absolute length (in bytes) of the memory buffer. The memory is found
-      /// from offset (inclusive) to offset + length (non-inclusive).
-      length: long;
-    }
+The location of a record batch and the size of the metadata block as
+well as the body of buffers is stored in the file footer in the
+``Block`` Flatbuffers struct. The ``Block`` offset indicates the
+starting byte of the record batch.
 
-In the context of a file, the ``page`` is not used, and the ``Buffer`` offsets use
-as a frame of reference the start of the message body. So, while in a general
-IPC setting these offsets may be anyplace in one or more shared memory regions,
-in the file format the offsets start from 0.
-
-The location of a record batch and the size of the metadata block as well as
-the body of buffers is stored in the file footer: ::
-
-    struct Block {
-      offset: long;
-      metaDataLength: int;
-      bodyLength: long;
-    }
-
-The ``metaDataLength`` here includes the metadata length prefix, serialized
-metadata, and any additional padding bytes, and by construction must be a
-multiple of 8 bytes.
-
-Some notes about this
-
-* The ``Block`` offset indicates the starting byte of the record batch.
-* The metadata length includes the flatbuffer size, the record batch metadata
-  flatbuffer, and any padding bytes
-
-Dictionary Batches
-~~~~~~~~~~~~~~~~~~
+Dictionary messages
+~~~~~~~~~~~~~~~~~~~
 
 Dictionaries are written in the stream and file formats as a sequence of record
 batches, each having a single field. The complete semantic schema for a

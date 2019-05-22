@@ -38,7 +38,9 @@ struct Block {
   /// Index to the start of the RecordBlock (note this is past the Message header)
   offset: long;
 
-  /// Length of the metadata
+  /// Length of the metadata. Includes the metadata length prefix,
+  /// serialized metadata, and any additional padding bytes, and by
+  /// construction must be a multiple of 8 bytes.
   metaDataLength: int;
 
   /// Length of the data (this is aligned so there can be a gap between this and
